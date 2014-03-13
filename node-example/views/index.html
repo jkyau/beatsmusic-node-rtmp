@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8">
+        <title>Beats Music API Call</title>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+        <!--<script src="/soundmanager/script/soundmanager2-nodebug-jsmin.js"></script>-->
+        <script src="/soundmanager/script/soundmanager2.js"></script>
+    </head>
+    <body>
+        <div id="login">
+            <a href="#" id="beatsLogin">login</a>
+        </div>
+        <div id="queue">
+            <ul id="tracks"></ul>
+        </div>
+    </body>
+    <script type="text/javascript">
+        var sound;
+        var base_url = 'https://partner.api.beatsmusic.com/v1/api';
+        var client_id = 'xsu4yep4kukrhgfeezcekekq';
+
+        var BEATS = {
+            'getAlbum': function(album_id) {
+                $.getJSON(base_url + '/albums/'+album_id + '?client_id=' + client_id, function(data) {
+                        var tracks = data.data.refs.tracks;
+                        for(var i=0; i<tracks.length; i++) {
+                            var name = tracks[i].display;
+                            var track_id = tracks[i].id;
+                            $('#tracks').append('<li><a href="#" class="track" ref="'+track_id+'">'+name+'</a></li>');
+                        }
+                });
+            },
+            'getAudio':function(track_id, cb) {
+                var access_token = getParameterByName('access_token');
+                var url = base_url + '/tracks/' + track_id + '/audio?acquire=1';
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    data: {},
+                    success: function(data, status) {
+                        var result = {
+                            'url': data.data.location,
+                            'asset': data.data.resource
+                        }
+                        cb(result);
+                    },
+                    beforeSend: function(xhr, settings) { 
+                        xhr.setRequestHeader('Authorization','Bearer ' + access_token); 
+                    } 
+                });
+
+            },
+            'beatsLogin': function() {
+                var path = 'https://partner.api.beatsmusic.com/oauth2/authorize?';
+                var queryParams = ['client_id=' + client_id,
+                    'redirect_uri=' + window.location,
+                    'response_type=token'];
+                var query = queryParams.join('&');
+                var url = path + query;
+                window.location.replace(url);
+            },
+            'checkLogin': function() {
+                var access_token = getParameterByName('access_token');
+
+                if(access_token) {
+                    $('#login').hide();
+                    MAIN.init();
+                }
+            }
+        }; 
+
+        var MAIN = {
+            'init': function() {
+                
+                BEATS.getAlbum('al19843113');
+            }
+        };
+
+        var SOUNDMANAGER = {
+            'playTrack': function(track_id, serverURL, url) {
+                sound = soundManager.createSound({
+                    id: track_id,
+                    serverURL: serverURL,
+                    url: url
+                });
+
+                sound.play();
+                
+            }
+        };
+
+        function getParameterByName(name) {
+            name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+            var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+                results = regex.exec(location.search);
+            return results == null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+        }
+
+        BEATS.checkLogin();
+
+        $(function() {
+            soundManager.setup({
+                url: '/soundmanager/swf/',
+                flashVersion: 9,
+                preferFlash: true,
+            });
+
+            $('#beatsLogin').click(function() {
+                BEATS.beatsLogin();
+            });
+
+
+            $("#queue").on("click", ".track", function() {
+                var track_id = $(this).attr('ref');
+                BEATS.getAudio(track_id, function(data) {
+                    SOUNDMANAGER.playTrack(track_id, data.url, data.asset);
+                });
+            });
+        });
+    </script>
+
+</html>
